@@ -18,5 +18,5 @@ def test_middleware_repr() -> None:
 
 
 def test_middleware_iter() -> None:
-    cls, args, kwargs = Middleware(CustomMiddleware, "foo", bar=123)
-    assert (cls, args, kwargs) == (CustomMiddleware, ("foo",), {"bar": 123})
+    cls, options = Middleware(CustomMiddleware, "foo", bar=123)
+    assert (cls, options) == (CustomMiddleware, {"args": ("foo",), "kwargs": {"bar": 123}})

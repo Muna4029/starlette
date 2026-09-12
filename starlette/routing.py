@@ -447,6 +447,15 @@ class Mount(BaseRoute):
                     "root_path": root_path + matched_path,
                     "endpoint": self.app,
                 }
+                if self.routes:
+                    # Check if any route within the mount matches the remaining path
+                    check_scope = dict(scope)
+                    check_scope.update(child_scope)
+                    for route in self.routes:
+                        route_match, _ = route.matches(check_scope)
+                        if route_match != Match.NONE:
+                            return Match.FULL, child_scope
+                    return Match.NONE, {}
                 return Match.FULL, child_scope
         return Match.NONE, {}
 
