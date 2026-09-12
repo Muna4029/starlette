@@ -460,7 +460,7 @@ def test_cors_preflight_vary_with_wildcard_origins_specific_methods(
     test_client_factory: TestClientFactory,
 ) -> None:
     def homepage(request: Request) -> PlainTextResponse:
-        pass  # pragma: no cover
+        return PlainTextResponse("Homepage", status_code=200)
 
     app = Starlette(
         routes=[Route("/", endpoint=homepage)],
@@ -481,7 +481,7 @@ def test_cors_preflight_vary_with_specific_origins_wildcard_methods(
     test_client_factory: TestClientFactory,
 ) -> None:
     def homepage(request: Request) -> PlainTextResponse:
-        pass  # pragma: no cover
+        return PlainTextResponse("Homepage", status_code=200)
 
     app = Starlette(
         routes=[Route("/", endpoint=homepage)],
@@ -694,7 +694,7 @@ def test_cors_null_origin_explicitly_allowed(test_client_factory: TestClientFact
 
 def test_cors_method_case_sensitive(test_client_factory: TestClientFactory) -> None:
     def homepage(request: Request) -> PlainTextResponse:
-        pass  # pragma: no cover
+        return PlainTextResponse("Homepage", status_code=200)
 
     app = Starlette(
         routes=[Route("/", endpoint=homepage)],
@@ -776,7 +776,7 @@ def test_cors_origins_list_and_regex_both_accepted(test_client_factory: TestClie
 
 def test_cors_max_age_header(test_client_factory: TestClientFactory) -> None:
     def homepage(request: Request) -> PlainTextResponse:
-        pass  # pragma: no cover
+        return PlainTextResponse("Homepage", status_code=200)
 
     app_default = Starlette(
         routes=[Route("/", endpoint=homepage)],
@@ -817,7 +817,7 @@ def test_cors_no_origin_header_no_cors_processing(test_client_factory: TestClien
 
 def test_cors_header_name_case_insensitive(test_client_factory: TestClientFactory) -> None:
     def homepage(request: Request) -> PlainTextResponse:
-        pass  # pragma: no cover
+        return PlainTextResponse("Homepage", status_code=200)
 
     app = Starlette(
         routes=[Route("/", endpoint=homepage)],
