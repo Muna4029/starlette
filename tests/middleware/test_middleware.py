@@ -3,7 +3,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 class CustomMiddleware:  # pragma: no cover
-    def __init__(self, app: ASGIApp, foo: str, *, bar: int) -> None:
+    def __init__(self, app: ASGIApp, foo: str = "", bar: int = 0) -> None:
         self.app = app
         self.foo = foo
         self.bar = bar
@@ -13,10 +13,10 @@ class CustomMiddleware:  # pragma: no cover
 
 
 def test_middleware_repr() -> None:
-    middleware = Middleware(CustomMiddleware, "foo", bar=123)
-    assert repr(middleware) == "Middleware(CustomMiddleware, 'foo', bar=123)"
+    middleware = Middleware(CustomMiddleware, foo="foo", bar=123)
+    assert repr(middleware) == "Middleware(CustomMiddleware, foo='foo', bar=123)"
 
 
 def test_middleware_iter() -> None:
-    cls, args, kwargs = Middleware(CustomMiddleware, "foo", bar=123)
-    assert (cls, args, kwargs) == (CustomMiddleware, ("foo",), {"bar": 123})
+    cls, options = Middleware(CustomMiddleware, foo="foo", bar=123)
+    assert (cls, options) == (CustomMiddleware, {"foo": "foo", "bar": 123})
