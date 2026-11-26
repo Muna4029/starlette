@@ -31,7 +31,7 @@ SERVER_PUSH_HEADERS_TO_COPY = {
 }
 
 
-def cookie_parser(cookie_string: str) -> dict[str, str]:
+def cookie_parser(cookie_string: str) -> typing.Dict[str, str]:
     """
     This function parses a ``Cookie`` HTTP header into a dict of key/value pairs.
 
@@ -68,7 +68,7 @@ class HTTPConnection(typing.Mapping[str, typing.Any]):
     any functionality that is common to both `Request` and `WebSocket`.
     """
 
-    def __init__(self, scope: Scope, receive: Receive | None = None) -> None:
+    def __init__(self, scope: Scope, receive: typing.Optional[Receive] = None) -> None:
         assert scope["type"] in ("http", "websocket")
         self.scope = scope
 
@@ -129,11 +129,11 @@ class HTTPConnection(typing.Mapping[str, typing.Any]):
         return self._query_params
 
     @property
-    def path_params(self) -> dict[str, typing.Any]:
+    def path_params(self) -> typing.Dict[str, typing.Any]:
         return self.scope.get("path_params", {})
 
     @property
-    def cookies(self) -> dict[str, str]:
+    def cookies(self) -> typing.Dict[str, str]:
         if not hasattr(self, "_cookies"):
             cookies: typing.Dict[str, str] = {}
             cookie_header = self.headers.get("cookie")
@@ -144,7 +144,7 @@ class HTTPConnection(typing.Mapping[str, typing.Any]):
         return self._cookies
 
     @property
-    def client(self) -> Address | None:
+    def client(self) -> typing.Optional[Address]:
         # client is a 2 item tuple of (host, port), None or missing
         host_port = self.scope.get("client")
         if host_port is not None:
@@ -152,24 +152,24 @@ class HTTPConnection(typing.Mapping[str, typing.Any]):
         return None
 
     @property
-    def session(self) -> dict[str, typing.Any]:
-        assert (
-            "session" in self.scope
-        ), "SessionMiddleware must be installed to access request.session"
+    def session(self) -> typing.Dict[str, typing.Any]:
+        assert "session" in self.scope, (
+            "SessionMiddleware must be installed to access request.session"
+        )
         return self.scope["session"]  # type: ignore[no-any-return]
 
     @property
     def auth(self) -> typing.Any:
-        assert (
-            "auth" in self.scope
-        ), "AuthenticationMiddleware must be installed to access request.auth"
+        assert "auth" in self.scope, (
+            "AuthenticationMiddleware must be installed to access request.auth"
+        )
         return self.scope["auth"]
 
     @property
     def user(self) -> typing.Any:
-        assert (
-            "user" in self.scope
-        ), "AuthenticationMiddleware must be installed to access request.user"
+        assert "user" in self.scope, (
+            "AuthenticationMiddleware must be installed to access request.user"
+        )
         return self.scope["user"]
 
     @property
@@ -253,12 +253,15 @@ class Request(HTTPConnection):
         return self._json
 
     async def _get_form(
-        self, *, max_files: int | float = 1000, max_fields: int | float = 1000
+        self,
+        *,
+        max_files: typing.Union[int, float] = 1000,
+        max_fields: typing.Union[int, float] = 1000,
     ) -> FormData:
         if self._form is None:
-            assert (
-                parse_options_header is not None
-            ), "The `python-multipart` library must be installed to use form parsing."
+            assert parse_options_header is not None, (
+                "The `python-multipart` library must be installed to use form parsing."
+            )
             content_type_header = self.headers.get("Content-Type")
             content_type: bytes
             content_type, _ = parse_options_header(content_type_header)
@@ -283,7 +286,10 @@ class Request(HTTPConnection):
         return self._form
 
     def form(
-        self, *, max_files: int | float = 1000, max_fields: int | float = 1000
+        self,
+        *,
+        max_files: typing.Union[int, float] = 1000,
+        max_fields: typing.Union[int, float] = 1000,
     ) -> AwaitableOrContextManager[FormData]:
         return AwaitableOrContextManagerWrapper(
             self._get_form(max_files=max_files, max_fields=max_fields)

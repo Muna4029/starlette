@@ -48,7 +48,7 @@ ASGI3App = typing.Callable[[Scope, Receive, Send], typing.Awaitable[None]]
 _RequestData = typing.Mapping[str, typing.Union[str, typing.Iterable[str]]]
 
 
-def _is_asgi3(app: ASGI2App | ASGI3App) -> TypeGuard[ASGI3App]:
+def _is_asgi3(app: typing.Union[ASGI2App, ASGI3App]) -> TypeGuard[ASGI3App]:
     if inspect.isclass(app):
         return hasattr(app, "__await__")
     return is_async_callable(app)
@@ -69,7 +69,7 @@ class _WrapASGI2:
 
 class _AsyncBackend(typing.TypedDict):
     backend: str
-    backend_options: dict[str, typing.Any]
+    backend_options: typing.Dict[str, typing.Any]
 
 
 class _Upgrade(Exception):
@@ -89,7 +89,9 @@ class WebSocketTestSession:
         self.accepted_subprotocol = None
         self.portal_factory = portal_factory
         self._receive_queue: queue.Queue[Message] = queue.Queue()
-        self._send_queue: queue.Queue[Message | BaseException] = queue.Queue()
+        self._send_queue: queue.Queue[typing.Union[Message, BaseException]] = (
+            queue.Queue()
+        )
         self.extra_headers = None
 
     def __enter__(self) -> WebSocketTestSession:
@@ -163,7 +165,7 @@ class WebSocketTestSession:
         else:
             self.send({"type": "websocket.receive", "bytes": text.encode("utf-8")})
 
-    def close(self, code: int = 1000, reason: str | None = None) -> None:
+    def close(self, code: int = 1000, reason: typing.Optional[str] = None) -> None:
         self.send({"type": "websocket.disconnect", "code": code, "reason": reason})
 
     def receive(self) -> Message:
@@ -202,7 +204,7 @@ class _TestClientTransport(httpx.BaseTransport):
         raise_server_exceptions: bool = True,
         root_path: str = "",
         *,
-        app_state: dict[str, typing.Any],
+        app_state: typing.Dict[str, typing.Any],
     ) -> None:
         self.app = app
         self.raise_server_exceptions = raise_server_exceptions
@@ -228,7 +230,7 @@ class _TestClientTransport(httpx.BaseTransport):
 
         # Include the 'host' header.
         if "host" in request.headers:
-            headers: list[tuple[bytes, bytes]] = []
+            headers: typing.List[typing.Tuple[bytes, bytes]] = []
         elif port == default_port:  # pragma: no cover
             headers = [(b"host", host.encode())]
         else:  # pragma: no cover
@@ -240,7 +242,7 @@ class _TestClientTransport(httpx.BaseTransport):
             for key, value in request.headers.multi_items()
         ]
 
-        scope: dict[str, typing.Any]
+        scope: typing.Dict[str, typing.Any]
 
         if scheme in {"ws", "wss"}:
             subprotocol = request.headers.get("sec-websocket-protocol", None)
@@ -283,7 +285,7 @@ class _TestClientTransport(httpx.BaseTransport):
         request_complete = False
         response_started = False
         response_complete: anyio.Event
-        raw_kwargs: dict[str, typing.Any] = {"stream": io.BytesIO()}
+        raw_kwargs: typing.Dict[str, typing.Any] = {"stream": io.BytesIO()}
         template = None
         context = None
 
@@ -319,9 +321,9 @@ class _TestClientTransport(httpx.BaseTransport):
             nonlocal raw_kwargs, response_started, template, context
 
             if message["type"] == "http.response.start":
-                assert (
-                    not response_started
-                ), 'Received multiple "http.response.start" messages.'
+                assert not response_started, (
+                    'Received multiple "http.response.start" messages.'
+                )
                 raw_kwargs["status_code"] = message["status"]
                 raw_kwargs["headers"] = [
                     (key.decode(), value.decode())
@@ -329,12 +331,12 @@ class _TestClientTransport(httpx.BaseTransport):
                 ]
                 response_started = True
             elif message["type"] == "http.response.body":
-                assert (
-                    response_started
-                ), 'Received "http.response.body" without "http.response.start".'
-                assert (
-                    not response_complete.is_set()
-                ), 'Received "http.response.body" after response completed.'
+                assert response_started, (
+                    'Received "http.response.body" without "http.response.start".'
+                )
+                assert not response_complete.is_set(), (
+                    'Received "http.response.body" after response completed.'
+                )
                 body = message.get("body", b"")
                 more_body = message.get("more_body", False)
                 if request.method != "HEAD":

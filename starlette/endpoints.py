@@ -57,7 +57,7 @@ class HTTPEndpoint:
 
 
 class WebSocketEndpoint:
-    encoding: str | None = None  # May be "text", "bytes", or "json".
+    encoding: typing.Optional[str] = None  # May be "text", "bytes", or "json".
 
     def __init__(self, scope: Scope, receive: Receive, send: Send) -> None:
         assert scope["type"] == "websocket"

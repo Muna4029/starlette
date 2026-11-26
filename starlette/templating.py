@@ -29,11 +29,11 @@ class _TemplateResponse(HTMLResponse):
     def __init__(
         self,
         template: typing.Any,
-        context: dict[str, typing.Any],
+        context: typing.Dict[str, typing.Any],
         status_code: int = 200,
-        headers: typing.Mapping[str, str] | None = None,
-        media_type: str | None = None,
-        background: BackgroundTask | None = None,
+        headers: typing.Optional[typing.Mapping[str, str]] = None,
+        media_type: typing.Optional[str] = None,
+        background: typing.Optional[BackgroundTask] = None,
     ):
         self.template = template
         self.context = context
@@ -66,36 +66,42 @@ class Jinja2Templates:
     @typing.overload
     def __init__(
         self,
-        directory: str
-        | PathLike[typing.AnyStr]
-        | typing.Sequence[str | PathLike[typing.AnyStr]],
+        directory: typing.Union[
+            str,
+            PathLike[typing.AnyStr],
+            typing.Sequence[typing.Union[str, PathLike[typing.AnyStr]]],
+        ],
         *,
-        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]]
-        | None = None,
+        context_processors: typing.Optional[
+            typing.List[typing.Callable[[Request], typing.Dict[str, typing.Any]]]
+        ] = None,
         **env_options: typing.Any,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     @typing.overload
     def __init__(
         self,
         *,
         env: jinja2.Environment,
-        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]]
-        | None = None,
-    ) -> None:
-        ...
+        context_processors: typing.Optional[
+            typing.List[typing.Callable[[Request], typing.Dict[str, typing.Any]]]
+        ] = None,
+    ) -> None: ...
 
     def __init__(
         self,
-        directory: str
-        | PathLike[typing.AnyStr]
-        | typing.Sequence[str | PathLike[typing.AnyStr]]
-        | None = None,
+        directory: typing.Optional[
+            typing.Union[
+                str,
+                PathLike[typing.AnyStr],
+                typing.Sequence[typing.Union[str, PathLike[typing.AnyStr]]],
+            ]
+        ] = None,
         *,
-        context_processors: list[typing.Callable[[Request], dict[str, typing.Any]]]
-        | None = None,
-        env: jinja2.Environment | None = None,
+        context_processors: typing.Optional[
+            typing.List[typing.Callable[[Request], typing.Dict[str, typing.Any]]]
+        ] = None,
+        env: typing.Optional[jinja2.Environment] = None,
         **env_options: typing.Any,
     ) -> None:
         if env_options:
@@ -115,9 +121,11 @@ class Jinja2Templates:
 
     def _create_env(
         self,
-        directory: str
-        | PathLike[typing.AnyStr]
-        | typing.Sequence[str | PathLike[typing.AnyStr]],
+        directory: typing.Union[
+            str,
+            PathLike[typing.AnyStr],
+            typing.Sequence[typing.Union[str, PathLike[typing.AnyStr]]],
+        ],
         **env_options: typing.Any,
     ) -> jinja2.Environment:
         loader = jinja2.FileSystemLoader(directory)
@@ -147,23 +155,22 @@ class Jinja2Templates:
         self,
         request: Request,
         name: str,
-        context: dict[str, typing.Any] | None = None,
+        context: typing.Optional[typing.Dict[str, typing.Any]] = None,
         status_code: int = 200,
-        headers: typing.Mapping[str, str] | None = None,
-        media_type: str | None = None,
-        background: BackgroundTask | None = None,
-    ) -> _TemplateResponse:
-        ...
+        headers: typing.Optional[typing.Mapping[str, str]] = None,
+        media_type: typing.Optional[str] = None,
+        background: typing.Optional[BackgroundTask] = None,
+    ) -> _TemplateResponse: ...
 
     @typing.overload
     def TemplateResponse(
         self,
         name: str,
-        context: dict[str, typing.Any] | None = None,
+        context: typing.Optional[typing.Dict[str, typing.Any]] = None,
         status_code: int = 200,
-        headers: typing.Mapping[str, str] | None = None,
-        media_type: str | None = None,
-        background: BackgroundTask | None = None,
+        headers: typing.Optional[typing.Mapping[str, str]] = None,
+        media_type: typing.Optional[str] = None,
+        background: typing.Optional[BackgroundTask] = None,
     ) -> _TemplateResponse:
         # Deprecated usage
         ...

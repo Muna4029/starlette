@@ -90,8 +90,8 @@ class WebSocket(HTTPConnection):
 
     async def accept(
         self,
-        subprotocol: str | None = None,
-        headers: typing.Iterable[tuple[bytes, bytes]] | None = None,
+        subprotocol: typing.Optional[str] = None,
+        headers: typing.Optional[typing.Iterable[typing.Tuple[bytes, bytes]]] = None,
     ) -> None:
         headers = headers or []
 
@@ -176,14 +176,16 @@ class WebSocket(HTTPConnection):
         else:
             await self.send({"type": "websocket.send", "bytes": text.encode("utf-8")})
 
-    async def close(self, code: int = 1000, reason: str | None = None) -> None:
+    async def close(
+        self, code: int = 1000, reason: typing.Optional[str] = None
+    ) -> None:
         await self.send(
             {"type": "websocket.close", "code": code, "reason": reason or ""}
         )
 
 
 class WebSocketClose:
-    def __init__(self, code: int = 1000, reason: str | None = None) -> None:
+    def __init__(self, code: int = 1000, reason: typing.Optional[str] = None) -> None:
         self.code = code
         self.reason = reason or ""
 

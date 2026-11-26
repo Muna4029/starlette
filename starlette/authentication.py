@@ -115,7 +115,7 @@ class AuthenticationError(Exception):
 class AuthenticationBackend:
     async def authenticate(
         self, conn: HTTPConnection
-    ) -> tuple[AuthCredentials, BaseUser] | None:
+    ) -> typing.Optional[typing.Tuple[AuthCredentials, BaseUser]]:
         raise NotImplementedError()  # pragma: no cover
 
 

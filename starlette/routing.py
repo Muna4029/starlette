@@ -11,6 +11,7 @@ import warnings
 from contextlib import asynccontextmanager
 from enum import Enum
 
+# Import explicit typing names for compatibility with older type checkers
 from starlette._exception_handler import wrap_app_handling_exceptions
 from starlette._utils import get_route_path, is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -147,9 +148,9 @@ def compile_path(
     for match in PARAM_REGEX.finditer(path):
         param_name, convertor_type = match.groups("str")
         convertor_type = convertor_type.lstrip(":")
-        assert (
-            convertor_type in CONVERTOR_TYPES
-        ), f"Unknown path convertor '{convertor_type}'"
+        assert convertor_type in CONVERTOR_TYPES, (
+            f"Unknown path convertor '{convertor_type}'"
+        )
         convertor = CONVERTOR_TYPES[convertor_type]
 
         path_regex += re.escape(path[idx : match.start()])
@@ -396,9 +397,9 @@ class Mount(BaseRoute):
         middleware: typing.Sequence[Middleware] | None = None,
     ) -> None:
         assert path == "" or path.startswith("/"), "Routed paths must start with '/'"
-        assert (
-            app is not None or routes is not None
-        ), "Either 'app=...', or 'routes=' must be specified"
+        assert app is not None or routes is not None, (
+            "Either 'app=...', or 'routes=' must be specified"
+        )
         self.path = path.rstrip("/")
         if app is not None:
             self._base_app: ASGIApp = app

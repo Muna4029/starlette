@@ -510,11 +510,11 @@ class Headers(typing.Mapping[str, str]):
 
     def __init__(
         self,
-        headers: typing.Mapping[str, str] | None = None,
-        raw: list[tuple[bytes, bytes]] | None = None,
-        scope: typing.MutableMapping[str, typing.Any] | None = None,
+        headers: typing.Optional[typing.Mapping[str, str]] = None,
+        raw: typing.Optional[typing.List[typing.Tuple[bytes, bytes]]] = None,
+        scope: typing.Optional[typing.MutableMapping[str, typing.Any]] = None,
     ) -> None:
-        self._list: list[tuple[bytes, bytes]] = []
+        self._list: typing.List[typing.Tuple[bytes, bytes]] = []
         if headers is not None:
             assert raw is None, 'Cannot set both "headers" and "raw".'
             assert scope is None, 'Cannot set both "headers" and "scope".'
@@ -531,22 +531,22 @@ class Headers(typing.Mapping[str, str]):
             self._list = scope["headers"] = list(scope["headers"])
 
     @property
-    def raw(self) -> list[tuple[bytes, bytes]]:
+    def raw(self) -> typing.List[typing.Tuple[bytes, bytes]]:
         return list(self._list)
 
-    def keys(self) -> list[str]:  # type: ignore[override]
+    def keys(self) -> typing.List[str]:  # type: ignore[override]
         return [key.decode("latin-1") for key, value in self._list]
 
-    def values(self) -> list[str]:  # type: ignore[override]
+    def values(self) -> typing.List[str]:  # type: ignore[override]
         return [value.decode("latin-1") for key, value in self._list]
 
-    def items(self) -> list[tuple[str, str]]:  # type: ignore[override]
+    def items(self) -> typing.List[typing.Tuple[str, str]]:  # type: ignore[override]
         return [
             (key.decode("latin-1"), value.decode("latin-1"))
             for key, value in self._list
         ]
 
-    def getlist(self, key: str) -> list[str]:
+    def getlist(self, key: str) -> typing.List[str]:
         get_header_key = key.lower().encode("latin-1")
         return [
             item_value.decode("latin-1")
@@ -641,7 +641,7 @@ class MutableHeaders(Headers):
         return new
 
     @property
-    def raw(self) -> list[tuple[bytes, bytes]]:
+    def raw(self) -> typing.List[typing.Tuple[bytes, bytes]]:
         return self._list
 
     def setdefault(self, key: str, value: str) -> str:
@@ -684,9 +684,9 @@ class State:
     Used for `request.state` and `app.state`.
     """
 
-    _state: dict[str, typing.Any]
+    _state: typing.Dict[str, typing.Any]
 
-    def __init__(self, state: dict[str, typing.Any] | None = None):
+    def __init__(self, state: typing.Optional[typing.Dict[str, typing.Any]] = None):
         if state is None:
             state = {}
         super().__setattr__("_state", state)
