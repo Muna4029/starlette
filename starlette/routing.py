@@ -285,7 +285,11 @@ class Route(BaseRoute):
     async def handle(self, scope: Scope, receive: Receive, send: Send) -> None:
         if self.methods and scope["method"] not in self.methods:
             headers = {"Allow": ", ".join(self.methods)}
-            if "app" in scope:
+            # If the scope has an application/endpoint present, prefer raising
+            # an exception so that upstream middleware/exception handlers can
+            # handle the 405. Some matchers use the 'endpoint' key for child
+            # scopes, so check for both.
+            if "app" in scope or "endpoint" in scope:
                 raise HTTPException(status_code=405, headers=headers)
             else:
                 response = PlainTextResponse(
@@ -422,10 +426,7 @@ class Mount(BaseRoute):
             root_path = scope.get("route_root_path", scope.get("root_path", ""))
             route_path = scope.get("route_path", re.sub(r"^" + root_path, "", path))
             mount_match = self.path_regex.match(route_path)
-            path_match = self.routes == [] or any(
-                [route.matches(scope)[0] == Match.FULL for route in self.routes]
-            )
-            if mount_match and path_match:
+            if mount_match:
                 matched_params = mount_match.groupdict()
                 for key, value in matched_params.items():
                     matched_params[key] = self.param_convertors[key].convert(value)
@@ -433,14 +434,28 @@ class Mount(BaseRoute):
                 matched_path = route_path[: -len(remaining_path)]
                 path_params = dict(scope.get("path_params", {}))
                 path_params.update(matched_params)
-                root_path = scope.get("root_path", "")
-                child_scope = {
-                    "path_params": path_params,
-                    "route_root_path": root_path + matched_path,
-                    "route_path": remaining_path,
-                    "endpoint": self.app,
-                }
-                return Match.FULL, child_scope
+                root_path_val = scope.get("root_path", "")
+
+                # Build an adjusted scope for testing child routes so that
+                # child route matchers see the updated route_path and route_root_path
+                test_scope = dict(scope)
+                test_scope["path_params"] = path_params
+                test_scope["route_root_path"] = root_path_val + matched_path
+                test_scope["route_path"] = remaining_path
+                test_scope["endpoint"] = self.app
+
+                path_match = self.routes == [] or any(
+                    route.matches(test_scope)[0] == Match.FULL for route in self.routes
+                )
+
+                if path_match:
+                    child_scope = {
+                        "path_params": path_params,
+                        "route_root_path": root_path_val + matched_path,
+                        "route_path": remaining_path,
+                        "endpoint": self.app,
+                    }
+                    return Match.FULL, child_scope
         return Match.NONE, {}
 
     def url_path_for(self, name: str, /, **path_params: typing.Any) -> URLPath:
@@ -761,6 +776,11 @@ class Router:
 
         if "router" not in scope:
             scope["router"] = self
+            # Ensure downstream logic that checks for 'app' can identify
+            # that this scope is being handled by this Router. Some codepaths
+            # and child scopes expect 'app' to be present to decide whether
+            # to raise HTTPExceptions (e.g. 405 handling).
+            scope["app"] = self
 
         if scope["type"] == "lifespan":
             await self.lifespan(scope, receive, send)

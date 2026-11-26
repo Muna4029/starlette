@@ -40,8 +40,15 @@ _RequestData = typing.Mapping[str, typing.Union[str, typing.Iterable[str]]]
 
 
 def _is_asgi3(app: typing.Union[ASGI2App, ASGI3App]) -> bool:
+    # Determine whether an application is ASGI3 (async callable) more reliably.
+    # For classes, check whether their __call__ is async. For callables/instances,
+    # rely on is_async_callable on the object or its __call__ attribute.
     if inspect.isclass(app):
-        return hasattr(app, "__await__")
+        return is_async_callable(getattr(app, "__call__", app))
+    # If it's an instance with an async __call__, treat it as ASGI3.
+    call = getattr(app, "__call__", None)
+    if call is not None:
+        return is_async_callable(call)
     return is_async_callable(app)
 
 
@@ -201,10 +208,16 @@ class _TestClientTransport(httpx.BaseTransport):
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         scheme = request.url.scheme
-        netloc = request.url.netloc.decode(encoding="ascii")
+        netloc = request.url.netloc
         path = request.url.path
         raw_path = request.url.raw_path
-        query = request.url.query.decode(encoding="ascii")
+        query = request.url.query
+
+        # Ensure we have text values for netloc and query for parsing/encoding.
+        if isinstance(netloc, (bytes, bytearray)):
+            netloc = netloc.decode("ascii")
+        if isinstance(query, (bytes, bytearray)):
+            query = query.decode("ascii")
 
         default_port = {"http": 80, "ws": 80, "https": 443, "wss": 443}[scheme]
 
@@ -215,13 +228,12 @@ class _TestClientTransport(httpx.BaseTransport):
             host = netloc
             port = default_port
 
-        # Include the 'host' header.
-        if "host" in request.headers:
-            headers: typing.List[typing.Tuple[bytes, bytes]] = []
-        elif port == default_port:  # pragma: no cover
-            headers = [(b"host", host.encode())]
-        else:  # pragma: no cover
-            headers = [(b"host", (f"{host}:{port}").encode())]
+        # Include the 'host' header if not already provided.
+        headers: typing.List[typing.Tuple[bytes, bytes]] = []
+        # request.headers may have case-insensitive keys; check in a lower-cased view.
+        if "host" not in {k.lower() for k in request.headers.keys()}:
+            host_header = host if port == default_port else f"{host}:{port}"
+            headers.append((b"host", host_header.encode()))
 
         # Include other request headers.
         headers += [
@@ -230,6 +242,15 @@ class _TestClientTransport(httpx.BaseTransport):
         ]
 
         scope: typing.Dict[str, typing.Any]
+
+        # Ensure raw_path and query_string are bytes where expected by ASGI.
+        if isinstance(raw_path, str):
+            raw_path_bytes = raw_path.encode("ascii")
+        else:
+            raw_path_bytes = raw_path
+        query_string = (
+            b"" if not query else (query.encode() if isinstance(query, str) else query)
+        )
 
         if scheme in {"ws", "wss"}:
             subprotocol = request.headers.get("sec-websocket-protocol", None)
@@ -240,13 +261,13 @@ class _TestClientTransport(httpx.BaseTransport):
             scope = {
                 "type": "websocket",
                 "path": unquote(path),
-                "raw_path": raw_path,
+                "raw_path": raw_path_bytes,
                 "root_path": self.root_path,
                 "scheme": scheme,
-                "query_string": query.encode(),
+                "query_string": query_string,
                 "headers": headers,
-                "client": ["testclient", 50000],
-                "server": [host, port],
+                "client": ("testclient", 50000),
+                "server": (host, port),
                 "subprotocols": subprotocols,
                 "state": self.app_state.copy(),
             }
@@ -258,13 +279,13 @@ class _TestClientTransport(httpx.BaseTransport):
             "http_version": "1.1",
             "method": request.method,
             "path": unquote(path),
-            "raw_path": raw_path,
+            "raw_path": raw_path_bytes,
             "root_path": self.root_path,
             "scheme": scheme,
-            "query_string": query.encode(),
+            "query_string": query_string,
             "headers": headers,
-            "client": ["testclient", 50000],
-            "server": [host, port],
+            "client": ("testclient", 50000),
+            "server": (host, port),
             "extensions": {"http.response.debug": {}},
             "state": self.app_state.copy(),
         }
@@ -308,9 +329,9 @@ class _TestClientTransport(httpx.BaseTransport):
             nonlocal raw_kwargs, response_started, template, context
 
             if message["type"] == "http.response.start":
-                assert (
-                    not response_started
-                ), 'Received multiple "http.response.start" messages.'
+                assert not response_started, (
+                    'Received multiple "http.response.start" messages.'
+                )
                 raw_kwargs["status_code"] = message["status"]
                 raw_kwargs["headers"] = [
                     (key.decode(), value.decode())
@@ -318,12 +339,12 @@ class _TestClientTransport(httpx.BaseTransport):
                 ]
                 response_started = True
             elif message["type"] == "http.response.body":
-                assert (
-                    response_started
-                ), 'Received "http.response.body" without "http.response.start".'
-                assert (
-                    not response_complete.is_set()
-                ), 'Received "http.response.body" after response completed.'
+                assert response_started, (
+                    'Received "http.response.body" without "http.response.start".'
+                )
+                assert not response_complete.is_set(), (
+                    'Received "http.response.body" after response completed.'
+                )
                 body = message.get("body", b"")
                 more_body = message.get("more_body", False)
                 if request.method != "HEAD":
@@ -423,9 +444,9 @@ class TestClient(httpx.Client):
         follow_redirects: typing.Optional[bool],
         allow_redirects: typing.Optional[bool],
     ) -> typing.Union[bool, httpx._client.UseClientDefault]:
-        redirect: typing.Union[
-            bool, httpx._client.UseClientDefault
-        ] = httpx._client.USE_CLIENT_DEFAULT
+        redirect: typing.Union[bool, httpx._client.UseClientDefault] = (
+            httpx._client.USE_CLIENT_DEFAULT
+        )
         if allow_redirects is not None:
             message = (
                 "The `allow_redirects` argument is deprecated. "
@@ -777,6 +798,7 @@ class TestClient(httpx.Client):
         async def receive() -> typing.Any:
             message = await self.stream_send.receive()
             if message is None:
+                # Propagate any exception raised in the background lifespan task.
                 self.task.result()
             return message
 
@@ -786,12 +808,22 @@ class TestClient(httpx.Client):
             "lifespan.startup.failed",
         )
         if message["type"] == "lifespan.startup.failed":
-            await receive()
+            # Attempt to gather details and raise an informative exception so
+            # startup failures are not silently swallowed.
+            details = message.get("message") if isinstance(message, dict) else None
+            try:
+                extra = await receive()
+                if isinstance(extra, dict):
+                    details = details or extra.get("message")
+            except Exception:
+                pass
+            raise RuntimeError(f"Lifespan startup failed: {details}")
 
     async def wait_shutdown(self) -> None:
         async def receive() -> typing.Any:
             message = await self.stream_send.receive()
             if message is None:
+                # Propagate exceptions from the background task if any.
                 self.task.result()
             return message
 
@@ -803,4 +835,11 @@ class TestClient(httpx.Client):
                 "lifespan.shutdown.failed",
             )
             if message["type"] == "lifespan.shutdown.failed":
-                await receive()
+                details = message.get("message") if isinstance(message, dict) else None
+                try:
+                    extra = await receive()
+                    if isinstance(extra, dict):
+                        details = details or extra.get("message")
+                except Exception:
+                    pass
+                raise RuntimeError(f"Lifespan shutdown failed: {details}")

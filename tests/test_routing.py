@@ -113,15 +113,20 @@ async def websocket_params(session: WebSocket):
 
 app = Router(
     [
-        Route("/", endpoint=homepage, methods=["GET"]),
+        Route("/", endpoint=homepage, methods=["GET"], name="homepage"),
         Mount(
             "/users",
             routes=[
-                Route("/", endpoint=users),
-                Route("/me", endpoint=user_me),
-                Route("/{username}", endpoint=user),
-                Route("/{username}:disable", endpoint=disable_user, methods=["PUT"]),
-                Route("/nomatch", endpoint=user_no_match),
+                Route("/", endpoint=users, name="users"),
+                Route("/me", endpoint=user_me, name="user_me"),
+                Route("/{username}", endpoint=user, name="user"),
+                Route(
+                    "/{username}:disable",
+                    endpoint=disable_user,
+                    methods=["PUT"],
+                    name="disable_user",
+                ),
+                Route("/nomatch", endpoint=user_no_match, name="user_no_match"),
             ],
         ),
         Mount(
@@ -152,8 +157,10 @@ app = Router(
             endpoint=path_with_parentheses,
             name="path-with-parentheses",
         ),
-        WebSocketRoute("/ws", endpoint=websocket_endpoint),
-        WebSocketRoute("/ws/{room}", endpoint=websocket_params),
+        WebSocketRoute("/ws", endpoint=websocket_endpoint, name="websocket_endpoint"),
+        WebSocketRoute(
+            "/ws/{room}", endpoint=websocket_params, name="websocket_params"
+        ),
     ]
 )
 
@@ -885,19 +892,15 @@ def test_duplicated_param_names():
 
 
 class Endpoint:
-    async def my_method(self, request):
-        ...  # pragma: no cover
+    async def my_method(self, request): ...  # pragma: no cover
 
     @classmethod
-    async def my_classmethod(cls, request):
-        ...  # pragma: no cover
+    async def my_classmethod(cls, request): ...  # pragma: no cover
 
     @staticmethod
-    async def my_staticmethod(request):
-        ...  # pragma: no cover
+    async def my_staticmethod(request): ...  # pragma: no cover
 
-    def __call__(self, request):
-        ...  # pragma: no cover
+    def __call__(self, request): ...  # pragma: no cover
 
 
 @pytest.mark.parametrize(
@@ -1036,7 +1039,8 @@ def test_add_route_to_app_after_mount(
         endpoint=homepage,
         methods=["GET"],
     )
-    client = test_client_factory(app)
+    # Wrap the Mount in a Router so the test client receives a top-level ASGI app
+    client = test_client_factory(Router([app]))
     response = client.get("/http/inner")
     assert response.status_code == 200
 
@@ -1048,7 +1052,8 @@ def test_exception_on_mounted_apps(test_client_factory):
     sub_app = Starlette(routes=[Route("/", exc)])
     app = Starlette(routes=[Mount("/sub", app=sub_app)])
 
-    client = test_client_factory(app)
+    # Ensure the test client propagates server exceptions to the caller
+    client = test_client_factory(app, raise_server_exceptions=True)
     with pytest.raises(Exception) as ctx:
         client.get("/sub/")
     assert str(ctx.value) == "Exc"
@@ -1110,7 +1115,7 @@ def test_mounted_middleware_does_not_catch_exception(
 
 
 def test_websocket_route_middleware(
-    test_client_factory: typing.Callable[..., TestClient]
+    test_client_factory: typing.Callable[..., TestClient],
 ):
     async def websocket_endpoint(session: WebSocket):
         await session.accept()
@@ -1226,8 +1231,7 @@ def test_decorator_deprecations() -> None:
 
     with pytest.deprecated_call():
 
-        async def startup() -> None:
-            ...  # pragma: nocover
+        async def startup() -> None: ...  # pragma: nocover
 
         router.on_event("startup")(startup)
 
